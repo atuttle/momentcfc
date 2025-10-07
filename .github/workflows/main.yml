@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.cfml_engine }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        cfml_engine:
+          - lucee@6
+          - lucee@7
+          - adobe@2021
+          - adobe@2023
+          - adobe@2025
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set timezone
+        run: |
+          echo 'America/Vancouver' | sudo tee /etc/timezone
+          sudo dpkg-reconfigure --frontend noninteractive tzdata
+      
+      - name: Run TestBox tests
+        uses: coldfumonkeh/cfml-testbox-action@v1
+        with:
+          cfml-engine: ${{ matrix.cfml_engine }}
