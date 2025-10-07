@@ -1,0 +1,30 @@
+{
+  "name": "momentcfc",
+  "version": "1.0.0",
+  "author": "Adam Tuttle",
+  "location": "https://github.com/atuttle/momentcfc",
+  "homepage": "https://github.com/atuttle/momentcfc",
+  "documentation": "https://github.com/atuttle/momentcfc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atuttle/momentcfc"
+  },
+  "bugs": "https://github.com/atuttle/momentcfc/issues",
+  "slug": "momentcfc",
+  "type": "modules",
+  "keywords": [
+    "date",
+    "time",
+    "datetime",
+    "timezone",
+    "moment"
+  ],
+  "private": false,
+  "dependencies": {},
+  "devDependencies": {
+    "testbox": "^5.0.0"
+  },
+  "installPaths": {
+    "testbox": "testbox/"
+  }
+}
