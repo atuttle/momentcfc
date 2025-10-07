@@ -8,7 +8,9 @@
 	 - Ryan Heldt: http://www.ryanheldt.com/post.cfm/working-with-fuzzy-dates-and-times
 	 - Ben Nadel: http://www.bennadel.com/blog/2501-converting-coldfusion-date-time-values-into-iso-8601-time-strings.htm
 	 - Zack Pitts: http://stackoverflow.com/a/16309780/751
+	 - Kenric Ashe: https://github.com/kenricashe/momentcfc
 */
+
 component displayname="moment" {
 
 	this.zone = '';
@@ -26,7 +28,7 @@ component displayname="moment" {
 				-- for instance initialized to someTimeValue in someTZID TZ
 	*/
 	public function init( time = now(), zone = getSystemTZ() ) {
-		this.time = (time contains '{ts') ? time : parseDateTime( arguments.time );
+		this.time = (time contains '{ts') ? time : parseDateTimeSafe( arguments.time );
 		this.zone = zone;
 		this.utc_conversion_offset = getTargetOffsetDiff( getSystemTZ(), zone, time );
 		this.utcTime = TZtoUTC( arguments.time, arguments.zone );
@@ -175,12 +177,13 @@ component displayname="moment" {
 	}
 
 	public struct function getZoneTable(){
+		var tz;
 		var list = createObject('java', 'java.util.TimeZone').getAvailableIDs();
-		var data = {};
+		var data = [:]; // ordered struct
 		for (tz in list){
 			//display *CURRENT* offsets
-			var ms = getTZ( tz ).getOffset( getSystemTimeMS() );
-			data[ tz ] = readableOffset( ms );
+			var ms = getTZ(tz).getOffset(getSystemTimeMS());
+			data[tz] = readableOffset(ms);
 		}
 		return data;
 	}
@@ -189,7 +192,8 @@ component displayname="moment" {
 		var timezone = getTZ( zone );
 		//can't use a moment for this math b/c it would cause infinite recursion: constructor uses this method
 		var epic = createDateTime(1970, 1, 1, 0, 0, 0);
-		var seconds = timezone.getOffset( javacast('long', dateDiff('s', epic, arguments.time)*1000) ) / 1000;
+		var parsedTime = parseDateTimeSafe( arguments.time );
+		var seconds = timezone.getOffset( javacast('long', dateDiff('s', epic, parsedTime)*1000) ) / 1000;
 		return seconds;
 	}
 
@@ -264,7 +268,7 @@ component displayname="moment" {
 		return from( nnow );
 	}
 
-	public function epoch() hint="returns the number of milliseconds since 1/1/1970 (local). Call .utc() first to get utc epoch" {
+	public function epoch() hint="returns the number of milliseconds since 1/1/1970 (local)" {
 		/*
 			It seems that we can't get CF to give us an actual UTC datetime object without using DateConvert(), which we
 			can not rely on, because it depends on the system time being the local time converting from/to. Instead, we've
@@ -272,9 +276,6 @@ component displayname="moment" {
 			to return the expected epoch values.
 		*/
 		return this.clone().getDateTime().getTime() - this.utc_conversion_offset;
-		var adjustment = (this.utc_conversion_offset > 0) ? -1 : 1;
-		return this.clone().getDateTime().getTime();
-		return this.clone().getDateTime().getTime() - (this.utc_conversion_offset * adjustment);
 	}
 
 	public function getDateTime() hint="return raw datetime object in current zone" {
@@ -402,13 +403,15 @@ component displayname="moment" {
 	}
 
 	private function TZtoUTC( time, tz = getSystemTZ() ){
-		var seconds = getArbitraryTimeOffset( time, tz );
-		return dateAdd( 's', -1 * seconds, time );
+		var parsedTime = parseDateTimeSafe( time );
+		var seconds = getArbitraryTimeOffset( parsedTime, tz );
+		return dateAdd( 's', -1 * seconds, parsedTime );
 	}
 
 	private function UTCtoTZ( required time, required string tz ){
-		var seconds = getArbitraryTimeOffset( time, tz );
-		return dateAdd( 's', seconds, time );
+		var parsedTime = parseDateTimeSafe( time );
+		var seconds = getArbitraryTimeOffset( parsedTime, tz );
+		return dateAdd( 's', seconds, parsedTime );
 	}
 
 	private function readableOffset( offset ){
@@ -492,6 +495,243 @@ component displayname="moment" {
 
 	private function getDatePart( datePart ){
 		return val( format( canonicalizeDatePart( arguments.datePart ) ) );
+	}
+
+	/**
+	 * Parse datetime object or string argument with a series of fallbacks
+	 * and support for edge cases such as bash "$(date)", Oracle, etc.
+	 */
+	private function parseDateTimeSafe( required any timeValue ) {
+	
+		// If it's already a proper date object with getTime() method, return it
+		if ( isDate( arguments.timeValue ) ) {
+			try {
+				// Test if it has getTime() method (proper date object)
+				arguments.timeValue.getTime();
+				return arguments.timeValue;
+			} catch ( any e ) {
+				// Fall through to parsing logic if getTime() fails
+			}
+		}
+		
+		// Convert to string for processing
+		var strdttm = toString(arguments.timeValue);
+
+		// Replace Narrow No-Break Space (e.g. found in Java 19+ datetime to string output)
+		strdttm = strdttm.replace(chr(8239), " ", "all");
+		
+		// Try Lucee native parseDateTime() first with original format
+		try {
+			var parsed = parseDateTime( strdttm );
+			// Ensure the result is a proper date object
+			if ( isDate( parsed ) ) {
+				return parsed;
+			}
+		}
+		// Try again with comma removal for formats like "9/20/22, 12:34 PM"
+		catch ( any e ) {
+			try {
+				var strdttmNoCommas = replace( strdttm, ",", "", "all" );
+				var parsed = parseDateTime( strdttmNoCommas );
+				if ( isDate( parsed ) ) {
+					return parsed;
+				}
+			} catch ( any e2 ) {
+				// Continue to custom parsing if both attempts fail
+			}
+		}
+		
+		// Handle bash date format: Mon Mar  3 03:09:07 PST 2025
+		var bashDatePattern = '^\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\w{3}\s+\d{4}$';
+		
+		if ( reFind( bashDatePattern, strdttm ) ) {
+			// Convert bash date to ISO format
+			var parts = listToArray( strdttm, ' ' );
+			if ( arrayLen( parts ) == 6 ) {
+				var monthMap = {
+					'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+					'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+					'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+				};
+				
+				var month = parts[2];
+				var day = numberFormat( parts[3], '00' );
+				var time = parts[4];
+				var year = parts[6];
+				
+				if ( structKeyExists( monthMap, month ) ) {
+					var isoFormat = year & '-' & monthMap[month] & '-' & day & ' ' & time;
+					try {
+						return parseDateTime( isoFormat );
+					}
+					catch ( any parseError ) {
+						// Fall through to createDateTime if parseDateTime fails
+					}
+				}
+			}
+		}
+		
+		// Handle Oracle date format: 20-SEP-22 12.34.00.000000 PM
+		var oracleDatePattern = '^\d{2}-\w{3}-\d{2}\s+\d{1,2}\.\d{2}\.\d{2}\.\d{6}\s+(AM|PM)$';
+		
+		if ( reFind( oracleDatePattern, strdttm ) ) {
+			// Convert Oracle date to parseable format
+			var parts = listToArray( strdttm, ' ' );
+			if ( arrayLen( parts ) == 3 ) {
+				var monthMap = {
+					'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+					'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+					'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+				};
+				
+				var datePart = parts[1]; // 20-SEP-22
+				var timePart = parts[2]; // 12.34.00.000000
+				var ampm = parts[3]; // PM
+				
+				// Parse date part
+				var dateComponents = listToArray( datePart, '-' );
+				if ( arrayLen( dateComponents ) == 3 ) {
+					var day = dateComponents[1];
+					var month = uCase( dateComponents[2] );
+					var year = '20' & dateComponents[3]; // Convert 2-digit to 4-digit year
+					
+					// Parse time part (remove microseconds)
+					var timeComponents = listToArray( timePart, '.' );
+					if ( arrayLen( timeComponents ) >= 3 ) {
+						var hour = timeComponents[1];
+						var minute = timeComponents[2];
+						var second = timeComponents[3];
+						// Ignore microseconds (timeComponents[4])
+						
+						if ( structKeyExists( monthMap, month ) ) {
+							// Convert to standard format with AM/PM
+							var standardFormat = monthMap[month] & '/' & day & '/' & year & ' ' & hour & ':' & minute & ':' & second & ' ' & ampm;
+							try {
+								return parseDateTime( standardFormat );
+							}
+							catch ( any parseError ) {
+								// Fall through to createDateTime if parseDateTime fails
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Handle syslog date format: Sep 20 12:34:00 (no year, assumes current year)
+		var syslogDatePattern = '^\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}$';
+		
+		if ( reFind( syslogDatePattern, strdttm ) ) {
+			// Convert syslog date to parseable format
+			var parts = listToArray( strdttm, ' ' );
+			if ( arrayLen( parts ) == 3 ) {
+				var monthMap = {
+					'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+					'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+					'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+				};
+				
+				var month = parts[1]; // Sep
+				var day = numberFormat( parts[2], '00' ); // 20
+				var time = parts[3]; // 12:34:00
+				
+				// Use current year since syslog doesn't include year
+				var currentYear = year( now() );
+				
+				if ( structKeyExists( monthMap, month ) ) {
+					// Convert to ISO format
+					var isoFormat = currentYear & '-' & monthMap[month] & '-' & day & ' ' & time;
+					try {
+						return parseDateTime( isoFormat );
+					}
+					catch ( any parseError ) {
+						// Fall through to createDateTime if parseDateTime fails
+					}
+				}
+			}
+		}
+		
+		// Handle Apache log date format: [20/Sep/2022:12:34:00 -0700]
+		var apacheLogPattern = '^\[\d{2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2}\s+[+-]\d{4}\]$';
+		
+		if ( reFind( apacheLogPattern, strdttm ) ) {
+			// Remove brackets and convert Apache log date to parseable format
+			var cleanedDate = mid( strdttm, 2, len( strdttm ) - 2 ); // Remove [ and ]
+			var parts = listToArray( cleanedDate, ' ' ); // Split by space to separate date/time from timezone
+			if ( arrayLen( parts ) == 2 ) {
+				var dateTimePart = parts[1]; // 20/Sep/2022:12:34:00
+				var timezonePart = parts[2]; // -0700
+				
+				// Split date and time parts
+				var colonPos = find( ':', dateTimePart );
+				if ( colonPos > 0 ) {
+					var datePart = left( dateTimePart, colonPos - 1 ); // 20/Sep/2022
+					var timePart = mid( dateTimePart, colonPos + 1, len( dateTimePart ) ); // 12:34:00
+					
+					var monthMap = {
+						'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+						'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+						'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+					};
+					
+					// Parse date part: 20/Sep/2022
+					var dateComponents = listToArray( datePart, '/' );
+					if ( arrayLen( dateComponents ) == 3 ) {
+						var day = dateComponents[1]; // 20
+						var month = dateComponents[2]; // Sep
+						var year = dateComponents[3]; // 2022
+						
+						if ( structKeyExists( monthMap, month ) ) {
+							// Convert to ISO format (ignore timezone for now)
+							var isoFormat = year & '-' & monthMap[month] & '-' & numberFormat( day, '00' ) & ' ' & timePart;
+							try {
+								return parseDateTime( isoFormat );
+							}
+							catch ( any parseError ) {
+								// Fall through to createDateTime if parseDateTime fails
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Try using createDateTime as a last resort e.g. for query datetime values
+		// This handles cases where the value looks like a date but isn't recognized as one
+		try {
+			// If strdttm looks like YYYY-MM-DD HH:mm:ss format
+			if ( reFind( '^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', strdttm ) ) {
+				var dateParts = listToArray( strdttm, ' ' );
+				if ( arrayLen( dateParts ) >= 2 ) {
+					var dateOnly = dateParts[1];
+					var timeOnly = dateParts[2];
+					
+					var ymd = listToArray( dateOnly, '-' );
+					var hms = listToArray( timeOnly, ':' );
+					
+					if ( arrayLen( ymd ) == 3 && arrayLen( hms ) >= 2 ) {
+						var year = val( ymd[1] );
+						var month = val( ymd[2] );
+						var day = val( ymd[3] );
+						var hour = val( hms[1] );
+						var minute = val( hms[2] );
+						var second = arrayLen( hms ) > 2 ? val( hms[3] ) : 0;
+						
+						return createDateTime( year, month, day, hour, minute, second );
+					}
+				}
+			}
+		}
+		catch ( any createError ) {
+			// Fall through to error if createDateTime also fails
+		}
+		
+		// If all parsing attempts fail, throw descriptive error
+		throw(
+			type = 'moment.parseDateTimeSafe',
+			message = 'Unable to parse date/time value: ' & strdttm,
+			detail = 'This may be due to stricter date parsing in Java 19+. Value type: ' & getMetaData( arguments.timeValue ).getName() & '. Consider using a standard date format or ensure MariaDB datetime columns return proper date objects.'
+		);
 	}
 
 }
