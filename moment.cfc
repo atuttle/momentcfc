@@ -8,7 +8,7 @@
 	 - Ryan Heldt: http://www.ryanheldt.com/post.cfm/working-with-fuzzy-dates-and-times
 	 - Ben Nadel: http://www.bennadel.com/blog/2501-converting-coldfusion-date-time-values-into-iso-8601-time-strings.htm
 	 - Zack Pitts: http://stackoverflow.com/a/16309780/751
-	 - Kenric Ashe: https://github.com/kenricashe/momentcfc
+	 - Kenric Ashe (maintainer as of 2025): https://github.com/kenricashe/momentcfc
 */
 
 component displayname="moment" {
@@ -47,10 +47,10 @@ component displayname="moment" {
 	}
 
 	public function tz( required string zone ) hint="convert datetime to specified zone" {
-		// this.utc_conversion_offset = getZoneCurrentOffset( arguments.zone ) * 1000;
-		this.utc_conversion_offset = getTargetOffsetDiff( getSystemTZ(), this.zone, this.time );
+		// Convert to new zone *before* recalculating offset (component instance property used by epoch() method)
 		this.time = UTCtoTZ( this.utcTime, arguments.zone );
 		this.zone = arguments.zone;
+		this.utc_conversion_offset = getTargetOffsetDiff( getSystemTZ(), arguments.zone, this.time );
 		return this;
 	}
 
@@ -69,29 +69,33 @@ component displayname="moment" {
 	public function startOf( required string part ){
 		part = canonicalizeDatePart(part, "startOf");
 		var dest = '';
-
+		// Previously this.localTime was used in each createDateTime() call,
+		// which apparently worked fine when system timezone was UTC,
+		// but for the automated tests the tz is purposely set to 'America/Vancouver'
+		// to catch any issues with timezone handling, after which the startOf/endOf tests failed.
+		// The solution was to use this.time in each createDateTime() call.
 		switch (part){
 			case 'year':
-				dest = createDateTime(year(this.localTime),1,1,0,0,0);
+				dest = createDateTime(year(this.time),1,1,0,0,0);
 				break;
 			case 'quarter':
-				dest = createDateTime(year(this.localTime),(int((month(this.localTime)-1)/3)+1)*3-2,1,0,0,0);
+				dest = createDateTime(year(this.time),(int((month(this.time)-1)/3)+1)*3-2,1,0,0,0);
 				break;
 			case 'month':
-				dest = createDateTime(year(this.localTime),month(this.localTime),1,0,0,0);
+				dest = createDateTime(year(this.time),month(this.time),1,0,0,0);
 				break;
 			case 'week':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),0,0,0);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),0,0,0);
 				dest = dateAdd("d", (dayOfWeek(dest)-1)*-1, dest);
 				break;
 			case 'day':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),0,0,0);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),0,0,0);
 				break;
 			case 'hour':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),hour(this.localTime),0,0);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),hour(this.time),0,0);
 				break;
 			case 'minute':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),hour(this.localTime),minute(this.localTime),0);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),hour(this.time),minute(this.time),0);
 				break;
 			default:
 				throw(message="Invalid date part value, expected one of: year, quarter, month, week, day, hour, minute; or one of their acceptable aliases (see dateTimeFormat docs)");
@@ -106,30 +110,30 @@ component displayname="moment" {
 		var dest = '';
 		switch (part){
 			case 'year':
-				dest = createDateTime(year(this.localTime),12,31,23,59,59);
+				dest = createDateTime(year(this.time),12,31,23,59,59);
 				break;
 			case 'quarter':
-				dest = createDateTime(year(this.localTime),(int((month(this.localTime)-1)/3)+1)*3,1,23,59,59); //first day of last month of quarter (e.g. 12/1)
+				dest = createDateTime(year(this.time),(int((month(this.time)-1)/3)+1)*3,1,23,59,59); //first day of last month of quarter (e.g. 12/1)
 				dest = dateAdd('m', 1, dest); //first day of following month
 				dest = dateAdd('d', -1, dest); //last day of last month of quarter
 				break;
 			case 'month':
-				dest = createDateTime(year(this.localTime),month(this.localTime),1,23,59,59); //first day of month
+				dest = createDateTime(year(this.time),month(this.time),1,23,59,59); //first day of month
 				dest = dateAdd('m', 1, dest); //first day of following month
 				dest = dateAdd('d', -1, dest); //last day of target month
 				break;
 			case 'week':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),23,59,59);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),23,59,59);
 				dest = dateAdd("d", (7-dayOfWeek(dest)), dest);
 				break;
 			case 'day':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),23,59,59);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),23,59,59);
 				break;
 			case 'hour':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),hour(this.localTime),59,59);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),hour(this.time),59,59);
 				break;
 			case 'minute':
-				dest = createDateTime(year(this.localTime),month(this.localTime),day(this.localTime),hour(this.localTime),minute(this.localTime),59);
+				dest = createDateTime(year(this.time),month(this.time),day(this.time),hour(this.time),minute(this.time),59);
 				break;
 			default:
 				throw(message="Invalid date part value, expected one of: year, quarter, month, week, day, hour, minute; or one of their acceptable aliases (see dateTimeFormat docs)");
@@ -169,32 +173,65 @@ component displayname="moment" {
 	}
 
 	public function getZoneCurrentOffset( required string zone ) hint="returns the offset in seconds (considering DST) of the specified zone" {
-		return getTZ( arguments.zone ).getOffset( getSystemTimeMS() ) / 1000;
+		// Use Java 8+ Time API to avoid Java 21 module issues
+		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', getSystemTimeMS()));
+		var zoneId = createObject('java', 'java.time.ZoneId').of(arguments.zone);
+		return zoneId.getRules().getOffset(instant).getTotalSeconds();
 	}
 
 	public string function getSystemTZ(){
-		return createObject('java', 'java.util.TimeZone').getDefault().getId();
+		// Use System property to avoid Java 21 module access issues with ZoneInfo
+		var tzId = createObject('java', 'java.lang.System').getProperty('user.timezone');
+		if (isNull(tzId) || tzId == '') {
+			// Fallback: use ZoneId which is in exported module
+			tzId = createObject('java', 'java.time.ZoneId').systemDefault().getId();
+		}
+		return toString(tzId);
 	}
 
 	public struct function getZoneTable(){
-		var tz;
-		var list = createObject('java', 'java.util.TimeZone').getAvailableIDs();
+		var tz = "";
+		// Use Java 8+ Time API to avoid Java 21 module issues
+		var zoneIdClass = createObject('java', 'java.time.ZoneId');
+		var list = zoneIdClass.getAvailableZoneIds().toArray();
+		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', getSystemTimeMS()));
 		var data = [:]; // ordered struct
 		for (tz in list){
 			//display *CURRENT* offsets
-			var ms = getTZ(tz).getOffset(getSystemTimeMS());
-			data[tz] = readableOffset(ms);
+			var zoneId = zoneIdClass.of(tz);
+			var offsetSeconds = zoneId.getRules().getOffset(instant).getTotalSeconds();
+			data[tz] = readableOffset(offsetSeconds * 1000);
 		}
 		return data;
 	}
 
 	public function getArbitraryTimeOffset( required time, required string zone ) hint="returns what the offset was at that specific moment"{
-		var timezone = getTZ( zone );
 		//can't use a moment for this math b/c it would cause infinite recursion: constructor uses this method
-		var epic = createDateTime(1970, 1, 1, 0, 0, 0);
 		var parsedTime = parseDateTimeSafe( arguments.time );
-		var seconds = timezone.getOffset( javacast('long', dateDiff('s', epic, parsedTime)*1000) ) / 1000;
-		return seconds;
+		
+		// Use Java 8+ Time API to avoid Java 21 module issues with ZoneInfo
+		// Convert CF datetime to Java LocalDateTime, then to ZonedDateTime in target zone
+		var year = year(parsedTime);
+		var month = month(parsedTime);
+		var day = day(parsedTime);
+		var hour = hour(parsedTime);
+		var minute = minute(parsedTime);
+		var second = second(parsedTime);
+		
+		var localDateTime = createObject('java', 'java.time.LocalDateTime').of(
+			javacast('int', year),
+			javacast('int', month),
+			javacast('int', day),
+			javacast('int', hour),
+			javacast('int', minute),
+			javacast('int', second)
+		);
+		
+		var zoneId = createObject('java', 'java.time.ZoneId').of(zone);
+		var zonedDateTime = localDateTime.atZone(zoneId);
+		var offsetSeconds = zonedDateTime.getOffset().getTotalSeconds();
+		
+		return offsetSeconds;
 	}
 
 	//===========================================
@@ -268,14 +305,15 @@ component displayname="moment" {
 		return from( nnow );
 	}
 
-	public function epoch() hint="returns the number of milliseconds since 1/1/1970 (local)" {
+	public numeric function epoch() hint="returns the number of milliseconds since 1/1/1970 (local)" {
 		/*
 			It seems that we can't get CF to give us an actual UTC datetime object without using DateConvert(), which we
 			can not rely on, because it depends on the system time being the local time converting from/to. Instead, we've
 			devised a system of detecting the target time zone's offset and using it here (the only place it seems necessary)
 			to return the expected epoch values.
+			Also using javaCast to prevent scientific notation in return value.
 		*/
-		return this.clone().getDateTime().getTime() - this.utc_conversion_offset;
+		return javaCast("long", this.clone().getDateTime().getTime() - this.utc_conversion_offset);
 	}
 
 	public function getDateTime() hint="return raw datetime object in current zone" {
@@ -386,8 +424,12 @@ component displayname="moment" {
 	}
 
 	public boolean function isDST() {
-		var dt = createObject('java', 'java.util.Date').init( this.epoch() );
-		return getTZ( this.zone ).inDayLightTime( dt );
+		// Use Java 8+ Time API to avoid Java 21 module issues
+		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', this.epoch()));
+		var zoneId = createObject('java', 'java.time.ZoneId').of(this.zone);
+		var zonedDateTime = instant.atZone(zoneId);
+		var zoneRules = zoneId.getRules();
+		return zoneRules.isDaylightSavings(instant);
 	}
 
 	//===========================================
@@ -396,10 +438,6 @@ component displayname="moment" {
 
 	private function getSystemTimeMS(){
 		return createObject('java', 'java.lang.System').currentTimeMillis();
-	}
-
-	private function getTZ( id ){
-		return createObject('java', 'java.util.TimeZone').getTimezone( id );
 	}
 
 	private function TZtoUTC( time, tz = getSystemTZ() ){

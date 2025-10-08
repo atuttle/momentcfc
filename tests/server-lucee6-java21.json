@@ -1,0 +1,12 @@
+{
+    "name":"momentcfc-lucee6-java21",
+    "app":{
+        "cfengine":"lucee@6"
+    },
+    "jvm":{
+        "javaVersion":"openjdk21"
+    },
+    "web":{
+        "webroot":"../"
+    }
+}
