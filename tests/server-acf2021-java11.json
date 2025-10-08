@@ -1,0 +1,12 @@
+{
+    "name":"momentcfc-acf2021-java11",
+    "app":{
+        "cfengine":"adobe@2021"
+    },
+    "jvm":{
+        "javaVersion":"openjdk11"
+    },
+    "web":{
+        "webroot":"../"
+    }
+}
