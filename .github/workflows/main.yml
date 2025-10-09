@@ -7,37 +7,134 @@ on:
     branches: [ main, master, develop ]
 
 jobs:
-  test:
-    name: Test on ${{ matrix.cfml_engine }}
+  test-lucee6:
+    name: Test on lucee@6
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        cfml_engine:
-          - lucee@6
-          - adobe@2018
-          - adobe@2021
-          - adobe@2023
-      fail-fast: false
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
       
       - name: Set timezone
         run: |
           echo 'America/Vancouver' | sudo tee /etc/timezone
           sudo dpkg-reconfigure --frontend noninteractive tzdata
       
-      - name: Run TestBox tests
-        uses: coldfumonkeh/cfml-testbox-action@v1
+      - name: Setup CommandBox
+        run: |
+          curl -fsSl https://downloads.ortussolutions.com/debs/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/ortussolutions.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/ortussolutions.gpg] https://downloads.ortussolutions.com/debs/noarch /" | sudo tee /etc/apt/sources.list.d/commandbox.list
+          sudo apt-get update && sudo apt-get install commandbox
+      
+      - name: Install dependencies and run tests
+        run: |
+          box install
+          box server start cfengine=lucee@6 port=8080
+          box testbox run directory=tests.testbox
+          box server stop
+
+  test-adobe2018:
+    name: Test on adobe@2018
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
         with:
-          cfml-engine: ${{ matrix.cfml_engine }}
-          args: "directory=tests.testbox"
-  
-  # The cfml-testbox-action Docker container has Java 11.
-  # ACF 2025 requires Java 17+, which made this separate job necessary.
-  # Let's make it Java 21 to prove that compatibility.
+          distribution: 'temurin'
+          java-version: 11
+      
+      - name: Set timezone
+        run: |
+          echo 'America/Vancouver' | sudo tee /etc/timezone
+          sudo dpkg-reconfigure --frontend noninteractive tzdata
+      
+      - name: Setup CommandBox
+        run: |
+          curl -fsSl https://downloads.ortussolutions.com/debs/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/ortussolutions.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/ortussolutions.gpg] https://downloads.ortussolutions.com/debs/noarch /" | sudo tee /etc/apt/sources.list.d/commandbox.list
+          sudo apt-get update && sudo apt-get install commandbox
+      
+      - name: Install dependencies and run tests
+        run: |
+          box install
+          box server start cfengine=adobe@2018 port=8080
+          box testbox run directory=tests.testbox
+          box server stop
+
+  test-adobe2021:
+    name: Test on adobe@2021
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 11
+      
+      - name: Set timezone
+        run: |
+          echo 'America/Vancouver' | sudo tee /etc/timezone
+          sudo dpkg-reconfigure --frontend noninteractive tzdata
+      
+      - name: Setup CommandBox
+        run: |
+          curl -fsSl https://downloads.ortussolutions.com/debs/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/ortussolutions.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/ortussolutions.gpg] https://downloads.ortussolutions.com/debs/noarch /" | sudo tee /etc/apt/sources.list.d/commandbox.list
+          sudo apt-get update && sudo apt-get install commandbox
+      
+      - name: Install dependencies and run tests
+        run: |
+          box install
+          box server start cfengine=adobe@2021 port=8080
+          box testbox run directory=tests.testbox
+          box server stop
+
+  test-adobe2023:
+    name: Test on adobe@2023
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+      
+      - name: Set timezone
+        run: |
+          echo 'America/Vancouver' | sudo tee /etc/timezone
+          sudo dpkg-reconfigure --frontend noninteractive tzdata
+      
+      - name: Setup CommandBox
+        run: |
+          curl -fsSl https://downloads.ortussolutions.com/debs/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/ortussolutions.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/ortussolutions.gpg] https://downloads.ortussolutions.com/debs/noarch /" | sudo tee /etc/apt/sources.list.d/commandbox.list
+          sudo apt-get update && sudo apt-get install commandbox
+      
+      - name: Install dependencies and run tests
+        run: |
+          box install
+          box server start cfengine=adobe@2023 port=8080
+          box testbox run directory=tests.testbox
+          box server stop
+
   test-adobe2025:
     name: Test on adobe@2025
     runs-on: ubuntu-latest
