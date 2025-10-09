@@ -33,10 +33,10 @@ jobs:
         uses: coldfumonkeh/cfml-testbox-action@v1
         with:
           cfml-engine: ${{ matrix.cfml_engine }}
-          testBundles: "tests.testbox"
+          args: "directory=tests.testbox"
   
   # The cfml-testbox-action Docker container has Java 11.
-  # Adobe ColdFusion 2025 requires Java 17+.
+  # ACF 2025 requires Java 17+, which made this separate job necessary.
   # Let's make it Java 21 to prove that compatibility.
   test-adobe2025:
     name: Test on adobe@2025
