@@ -8,33 +8,22 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.cfml_engine }} (Java ${{ matrix.java_version }})
+    name: Test on ${{ matrix.cfml_engine }}
     runs-on: ubuntu-latest
     
     strategy:
       matrix:
-        include:
-          - cfml_engine: lucee@6
-            java_version: 21
-          - cfml_engine: adobe@2018
-            java_version: 11
-          - cfml_engine: adobe@2021
-            java_version: 11
-          - cfml_engine: adobe@2023
-            java_version: 17
-          - cfml_engine: adobe@2025
-            java_version: 21
+        cfml_engine:
+          - lucee@6
+          - adobe@2018
+          - adobe@2021
+          - adobe@2023
+          - adobe@2025
       fail-fast: false
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Java ${{ matrix.java_version }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.java_version }}
       
       - name: Set timezone
         run: |
