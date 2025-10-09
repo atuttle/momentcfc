@@ -26,18 +26,35 @@ for config in "${CONFIGS[@]}"; do
 	box server stop name=$(jq -r '.name' "$config") 2>/dev/null || true
 	
 	# Start server with specific config (waits until ready)
-	box server start serverConfigFile="$config"
+	box server start serverConfigFile="$config" openbrowser=false --noSaveSettings
 	
 	# Get server info
 	SERVER_PORT=$(box server info property=port serverConfigFile="$config")
 	
 	# Run TestBox tests via HTTP
-	curl -f "http://127.0.0.1:$SERVER_PORT/tests/runner.cfm?reporter=json" || {
+	echo ""
+	echo "Calling runner.cfm ..."
+	TEST_OUTPUT=$(curl -f "http://127.0.0.1:$SERVER_PORT/tests/runner.cfm?reporter=text")
+	echo "$TEST_OUTPUT"
+	
+	# Check if tests failed by looking for [Failed: N] where N > 0
+	if echo "$TEST_OUTPUT" | grep -q '\[Failed: [1-9][0-9]*\]'; then
+		echo ""
 		echo "FAILED: Tests failed for $config"
 		box server stop serverConfigFile="$config"
 		exit 1
-	}
+	fi
 	
+	# Check if there were errors
+	if echo "$TEST_OUTPUT" | grep -q '\[Errors: [1-9][0-9]*\]'; then
+		echo ""
+		echo "FAILED: Tests had errors for $config"
+		box server stop serverConfigFile="$config"
+		exit 1
+	fi
+	
+	echo ""
+	echo ""
 	echo "✓ PASSED: $config"
 	
 	# Stop server
