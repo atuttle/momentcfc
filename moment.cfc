@@ -213,22 +213,14 @@ component displayname="moment" {
 		// sun.util.calendar package via java.util.TimeZone.getOffset()
 		// Convert CF datetime to Java LocalDateTime, then to ZonedDateTime in target zone
 		
-		var year = year(parsedTime);
-		var month = month(parsedTime);
-		var day = day(parsedTime);
-		var hour = hour(parsedTime);
-		var minute = minute(parsedTime);
-		var second = second(parsedTime);
-		
 		var localDateTime = createObject('java', 'java.time.LocalDateTime').of(
-			javacast('int', year),
-			javacast('int', month),
-			javacast('int', day),
-			javacast('int', hour),
-			javacast('int', minute),
-			javacast('int', second)
-		);
-		
+			javacast('int', year(parsedTime)),
+			javacast('int', month(parsedTime)),
+			javacast('int', day(parsedTime)),
+			javacast('int', hour(parsedTime)),
+			javacast('int', minute(parsedTime)),
+			javacast('int', second(parsedTime))
+		);		
 		var zoneId = createObject('java', 'java.time.ZoneId').of(zone);
 		var zonedDateTime = localDateTime.atZone(zoneId);
 		var offsetSeconds = zonedDateTime.getOffset().getTotalSeconds();
