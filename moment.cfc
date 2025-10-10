@@ -173,14 +173,14 @@ component displayname="moment" {
 	}
 
 	public function getZoneCurrentOffset( required string zone ) hint="returns the offset in seconds (considering DST) of the specified zone" {
-		// Use Java 8+ Time API to avoid Java 21 module issues
+		// Use Java 8+ Time API to avoid Java 16+ module access issues
 		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', getSystemTimeMS()));
 		var zoneId = createObject('java', 'java.time.ZoneId').of(arguments.zone);
 		return zoneId.getRules().getOffset(instant).getTotalSeconds();
 	}
 
 	public string function getSystemTZ(){
-		// Use System property to avoid Java 21 module access issues with ZoneInfo
+		// Use System property to avoid Java 16+ module access issues with ZoneInfo
 		var tzId = createObject('java', 'java.lang.System').getProperty('user.timezone');
 		if (isNull(tzId) || tzId == '') {
 			// Fallback: use ZoneId which is in exported module
@@ -191,7 +191,7 @@ component displayname="moment" {
 
 	public struct function getZoneTable(){
 		var tz = "";
-		// Use Java 8+ Time API to avoid Java 21 module issues
+		// Use Java 8+ Time API to avoid Java 16+ module access issues
 		var zoneIdClass = createObject('java', 'java.time.ZoneId');
 		var list = zoneIdClass.getAvailableZoneIds().toArray();
 		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', getSystemTimeMS()));
@@ -209,8 +209,10 @@ component displayname="moment" {
 		//can't use a moment for this math b/c it would cause infinite recursion: constructor uses this method
 		var parsedTime = parseDateTimeSafe( arguments.time );
 		
-		// Use Java 8+ Time API to avoid Java 21 module issues with ZoneInfo
+		// Use Java 8+ Time API to avoid Java 16+ blocking access to internal
+		// sun.util.calendar package via java.util.TimeZone.getOffset()
 		// Convert CF datetime to Java LocalDateTime, then to ZonedDateTime in target zone
+		
 		var year = year(parsedTime);
 		var month = month(parsedTime);
 		var day = day(parsedTime);
@@ -424,7 +426,7 @@ component displayname="moment" {
 	}
 
 	public boolean function isDST() {
-		// Use Java 8+ Time API to avoid Java 21 module issues
+		// Use Java 8+ Time API to avoid Java 16+ module access issues
 		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', this.epoch()));
 		var zoneId = createObject('java', 'java.time.ZoneId').of(this.zone);
 		var zonedDateTime = instant.atZone(zoneId);
