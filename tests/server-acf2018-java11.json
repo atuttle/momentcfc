@@ -1,7 +1,8 @@
 {
     "name":"momentcfc-acf2018-java11",
     "app":{
-        "cfengine":"adobe@2018"
+        "cfengine":"adobe@2018",
+        "timezone": "America/Vancouver"
     },
     "jvm":{
         "javaVersion":"openjdk11"

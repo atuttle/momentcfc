@@ -1,7 +1,8 @@
 {
     "name":"momentcfc-lucee6-java21",
     "app":{
-        "cfengine":"lucee@6"
+        "cfengine":"lucee@6",
+        "timezone": "America/Vancouver"
     },
     "jvm":{
         "javaVersion":"openjdk21"
