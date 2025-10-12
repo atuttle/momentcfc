@@ -1,5 +1,5 @@
 /*
-	MOMENT.CFC v1.1.16
+	MOMENT.CFC v1.1.17
 	-------------------
 	Inspired by (but not a strict port of) moment.js: http://momentjs.com/
 	With help from: @seancorfield, @ryanguill

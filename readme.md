@@ -2,7 +2,10 @@
 
 Inspired by moment.js, but not a strict port. With added Time Zone switchy goodness!
 
-<img src="https://img.shields.io/badge/Lucee-6.2%2B-blue.svg" /> <img src="https://img.shields.io/badge/Adobe%20ColdFusion-2021%2B-blue.svg" /> <img src="https://img.shields.io/badge/awesomeness-11-orange.svg" />
+<img src="https://img.shields.io/badge/Lucee-6.2%2B-blue.svg" />
+<img src="https://img.shields.io/badge/Adobe%20ColdFusion-2018%2B-blue.svg" />
+<img src="https://img.shields.io/badge/Java-8%2B-blue.svg" />
+<img src="https://img.shields.io/badge/awesomeness-11-orange.svg" />
 
 CFML is all about making complex things simple, but date-math seems to have missed this boat.
 
