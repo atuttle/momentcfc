@@ -190,13 +190,12 @@ component displayname="moment" {
 	}
 
 	public struct function getZoneTable(){
-		var tz = "";
 		// Use Java 8+ Time API to avoid Java 16+ module access issues
 		var zoneIdClass = createObject('java', 'java.time.ZoneId');
 		var list = zoneIdClass.getAvailableZoneIds().toArray();
 		var instant = createObject('java', 'java.time.Instant').ofEpochMilli(javacast('long', getSystemTimeMS()));
 		var data = [:]; // ordered struct
-		for (tz in list){
+		for (var tz in list){
 			//display *CURRENT* offsets
 			var zoneId = zoneIdClass.of(tz);
 			var offsetSeconds = zoneId.getRules().getOffset(instant).getTotalSeconds();
