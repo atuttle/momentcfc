@@ -266,11 +266,19 @@ Get a list of all world time zones and their displayable offsets. This lists the
 
 ## Compatibility
 
-To date, development has been done against Adobe ColdFusion 10 and 11, in particular giving preference to `dateTimeFormat()` and its masks. Adobe CF9 compatibility might be possible, but probably not as easy as Lucee and Railo. Pull requests welcome in this department!
+Tests are run in these environments:
+
+- Lucee 6 with Java 21
+- Adobe ColdFusion 2018 with Java 11
+- Adobe ColdFusion 2021 with Java 11
+- Adobe ColdFusion 2023 with Java 17
+- Adobe ColdFusion 2025 with Java 21
 
 ## Testing
 
-It is assumed that you have [TestBox](http://wiki.coldbox.org/wiki/TestBox.cfm) installed. (A mapping to `/testbox` should be sufficient.) Then just navigate to `tests.cfc?method=runRemote` in your browser.
+Tests are automated via GitHub Actions.
+
+Also see `/tests/run-local-tests.sh` for running locally.
 
 ## MIT Licensed
 
