@@ -5,7 +5,8 @@
         "timezone": "America/Vancouver"
     },
     "jvm":{
-        "javaVersion":"openjdk17"
+        "javaVersion":"openjdk17",
+        "jvmArgs":"-Duser.timezone=America/Vancouver"
     },
     "web":{
         "webroot":"../"
