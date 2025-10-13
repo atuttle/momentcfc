@@ -1,10 +1,12 @@
 {
     "name":"momentcfc-acf2018-java11",
     "app":{
-        "cfengine":"adobe@2018"
+        "cfengine":"adobe@2018",
+        "timezone": "America/Vancouver"
     },
     "jvm":{
-        "javaVersion":"openjdk11"
+        "javaVersion":"openjdk11",
+        "jvmArgs":"-Duser.timezone=America/Vancouver"
     },
     "web":{
         "webroot":"../"

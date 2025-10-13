@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           box install
-          box server start cfengine=lucee@6 port=8080
+          box server start cfengine=lucee@6 port=8080 jvmArgs="-Duser.timezone=America/Vancouver"
           box testbox run directory=tests.testbox
           box server stop
 
@@ -67,7 +67,7 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           box install
-          box server start cfengine=adobe@2018 port=8080
+          box server start cfengine=adobe@2018 port=8080 jvmArgs="-Duser.timezone=America/Vancouver"
           box testbox run directory=tests.testbox
           box server stop
 
@@ -99,7 +99,7 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           box install
-          box server start cfengine=adobe@2021 port=8080
+          box server start cfengine=adobe@2021 port=8080 jvmArgs="-Duser.timezone=America/Vancouver"
           box testbox run directory=tests.testbox
           box server stop
 
@@ -131,7 +131,7 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           box install
-          box server start cfengine=adobe@2023 port=8080
+          box server start cfengine=adobe@2023 port=8080 jvmArgs="-Duser.timezone=America/Vancouver"
           box testbox run directory=tests.testbox
           box server stop
 
@@ -163,6 +163,6 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           box install
-          box server start cfengine=adobe@2025 port=8080
+          box server start cfengine=adobe@2025 port=8080 jvmArgs="-Duser.timezone=America/Vancouver"
           box testbox run directory=tests.testbox
           box server stop

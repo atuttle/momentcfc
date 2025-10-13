@@ -7,6 +7,7 @@ set -e  # Exit on error
 cd "$(git rev-parse --show-toplevel)"
 
 CONFIGS=(
+	"tests/server-lucee5-java11.json"
 	"tests/server-lucee6-java21.json"
 	"tests/server-acf2018-java11.json"
 	"tests/server-acf2021-java11.json"

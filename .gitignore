@@ -1,8 +1,8 @@
-tests/results/output.txt
-tests/results/testbox.properties
+/tests/results/output.txt
+/tests/results/testbox.properties
 
 # TestBox (dev dependency, installed per project)
-testbox/
+/testbox/
 
 # CommandBox server config (user-specific)
 server.json
