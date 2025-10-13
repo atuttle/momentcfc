@@ -1,11 +1,11 @@
 {
-    "name":"momentcfc-acf2025-java21",
+    "name":"momentcfc-lucee5-java11",
     "app":{
-        "cfengine":"adobe@2025",
+        "cfengine":"lucee@5",
         "timezone":"America/Vancouver"
     },
     "jvm":{
-        "javaVersion":"openjdk21"
+        "javaVersion":"openjdk11"
     },
     "web":{
         "webroot":"../"

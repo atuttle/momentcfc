@@ -2,7 +2,7 @@
 
 # Updates the version in moment.cfc and box.json.
 
-# Usage Example (from git root): ./update_version.sh 1.1.15
+# Usage Example (from git root): ./update_version.sh 2.16.12
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <new_version>"

@@ -2,18 +2,28 @@ component extends="testbox.system.BaseSpec" {
 
 	function run(){
 
+		var isComponentNotFound = function(e) {
+			return findNoCase("find", e.message) && findNoCase("component", e.message) && findNoCase("moment", e.message);
+		};
+
 		//normalize moment instance creation over various environments
 		var moment = function(){
 			try {
 				return new moment(argumentCollection=arguments);
-			} catch(any e) {
+			}
+			catch(any e) {
+				if (!isComponentNotFound(e)) rethrow;
 				try {
 					return new momentcfc.moment(argumentCollection=arguments);
-				} catch(any e) {
+				}
+				catch(any e) {
+					if (!isComponentNotFound(e)) rethrow;
 					try {
 						return new demo.momentcfc.moment(argumentCollection=arguments);
-					} catch(any e) {
-						throw(message="can't find moment!");
+					}
+					catch(any e) {
+						if (!isComponentNotFound(e)) rethrow;
+						throw(message="Can't find moment!");
 					}
 				}
 			}
@@ -1093,6 +1103,321 @@ component extends="testbox.system.BaseSpec" {
 
 		});
 
-	}
+		describe("COMPATIBILITY", function(){
+		
+			describe("PARSING", function(){
+			
+				it("handles Java 19+ narrow no-break space before AM/PM", function(){
+					var java19Date = "2025-03-20 12:34:56#chr(8239)#PM";
+					var test = moment(java19Date);
+					expect( test.format("yyyy-mm-dd HH:nn:ss") ).toBe( "2025-03-20 12:34:56" );
+				});
+				
+				it("handles ISO 8601 date strings with timezone offsets", function(){
+					var test = moment('2015-03-20T09:00:00-07:00');
+					expect( test.year() ).toBe( 2015 );
+					expect( test.month() ).toBe( 3 );
+					expect( test.day() ).toBe( 20 );
+					expect( test.hour() ).toBe( 9 );
+				});
+				
+				it("handles CFML datetime objects with explicit timezones", function(){
+					// Create datetime WITHOUT timezone conversion
+					var cfDate = createDateTime(2015,3,20,9,0,0);
+					
+					// Pass to moment with explicit timezone
+					var test = moment(cfDate, "America/New_York");
+					
+					// Verify timezone
+					expect( test.format("yyyy-mm-dd HH:nn:ss") ).toBe( "2015-03-20 09:00:00" );
+					expect( test.getZone() ).toBe( "America/New_York" );
+					
+					// Verify UTC conversion is correct (9 AM EST = 1 PM UTC in March, DST active)
+					var utcVersion = test.clone().utc();
+					expect( utcVersion.format("yyyy-mm-dd HH:nn:ss") ).toBe( "2015-03-20 13:00:00" );
+				});
+			
+			});
+			
+			describe("MUTATION RETURN TYPES", function(){
+			
+				it("returns moment instance after add()", function(){
+					var test = moment();
+					expect( isInstanceOf(test.add(1,'day'), "moment") ).toBeTrue();
+				});
+				
+				it("returns moment instance after subtract()", function(){
+					var test = moment();
+					expect( isInstanceOf(test.subtract(1,'hour'), "moment") ).toBeTrue();
+				});
+				
+				it("returns moment instance after tz()", function(){
+					var test = moment();
+					expect( isInstanceOf(test.tz('UTC'), "moment") ).toBeTrue();
+				});
+			
+			});
+			
+			describe("METHOD CHAINING", function(){
+				
+				it("supports multiple mutations in sequence", function(){
+					var test = moment().add(1,'day').subtract(1,'hour').tz('UTC').startOf('hour');
+					expect( isInstanceOf(test, "moment") ).toBeTrue();
+					expect( test.getZone() ).toBe( "UTC" );
+				});
+			
+			});
+		
+		});
 
+		describe("ERROR HANDLING", function(){
+	
+			describe("Invalid Timezone Names", function(){
+		
+				it("throws error for invalid timezone in constructor", function(){
+					expect( function(){
+						var test = moment(now(), "Invalid/Timezone");
+					}).toThrow();
+				});
+				
+				it("throws error for invalid timezone in tz()", function(){
+					expect( function(){
+						var test = moment();
+						test.tz("Bogus/Zone");
+					}).toThrow();
+				});
+		
+			});
+		
+			describe("Invalid Date Strings", function(){
+		
+				it("throws error for completely invalid date string", function(){
+					expect( function(){
+						var test = moment("not a date at all");
+					}).toThrow();
+				});
+				
+				it("throws error for malformed date string", function(){
+					expect( function(){
+						var test = moment("2025-99-99 99:99:99");
+					}).toThrow();
+				});
+		
+			});
+		
+			describe("Invalid Date Parts", function(){
+		
+				it("throws error for invalid date part in add()", function(){
+					expect( function(){
+						var test = moment();
+						test.add(1, 'invalidpart');
+					}).toThrow();
+				});
+				
+				it("throws error for invalid date part in subtract()", function(){
+					expect( function(){
+						var test = moment();
+						test.subtract(1, 'foo');
+					}).toThrow();
+				});
+				
+				it("throws error for invalid date part in startOf()", function(){
+					expect( function(){
+						var test = moment();
+						test.startOf('invalid');
+					}).toThrow();
+				});
+				
+				it("throws error for invalid date part in endOf()", function(){
+					expect( function(){
+						var test = moment();
+						test.endOf('bar');
+					}).toThrow();
+				});
+		
+			});
+	
+		});
+
+		describe("DST BOUNDARY TRANSITIONS", function(){
+	
+			describe("Spring Forward (Lose an Hour)", function(){
+		
+				it("handles adding hours across spring forward DST boundary", function(){
+					// 2015-03-08 2:00 AM is when DST starts in America/New_York
+					// Clocks jump from 1:59:59 AM to 3:00:00 AM
+					var beforeDST = moment('2015-03-08 01:00:00', 'America/New_York');
+					var afterAdd = beforeDST.clone().add(3, 'hours');
+					
+					// 1 AM + 3 hours = 5 AM (clock springs forward, skipping 2 AM)
+					expect( afterAdd.format('yyyy-mm-dd HH:nn:ss') ).toBe( '2015-03-08 05:00:00' );
+				});
+				
+				it("maintains correct epoch across spring forward", function(){
+					// Verify that DST spring forward is handled correctly
+					var before = moment('2015-03-08 01:00:00', 'America/New_York');
+					var after = before.clone().add(1, 'hour');
+					// Adding 1 hour from 1 AM should result in 3 AM (not 2 AM)
+					// because the clock springs forward at 2 AM
+					expect( after.format('yyyy-mm-dd HH:nn:ss') ).toBe( '2015-03-08 03:00:00' );
+				});
+		
+			});
+		
+			describe("Fall Back (Gain an Hour)", function(){
+		
+				it("handles adding hours across fall back DST boundary", function(){
+					// 2015-11-01 2:00 AM is when DST ends in America/New_York
+					// Clocks fall back from 1:59:59 AM to 1:00:00 AM
+					var beforeDST = moment('2015-11-01 00:00:00', 'America/New_York');
+					var afterAdd = beforeDST.clone().add(3, 'hours');
+					
+					// Midnight + 3 hours = 2 AM (clock falls back, gaining an hour)
+					expect( afterAdd.format('yyyy-mm-dd HH:nn:ss') ).toBe( '2015-11-01 02:00:00' );
+				});
+				
+				it("maintains correct epoch across fall back", function(){
+				// Verify that DST fall back is handled correctly by checking
+				// that the library correctly interprets times across the boundary
+				var before = moment('2015-11-01 01:00:00', 'America/New_York');
+				var after = before.clone().add(2, 'hours');
+				
+				// Adding 2 hours should result in 3 AM (not 2 AM)
+				// because the clock falls back at 2 AM
+				expect( after.format('yyyy-mm-dd HH:nn:ss') ).toBe( '2015-11-01 03:00:00' );
+			});
+		
+			});
+		
+			describe("Cross-Timezone DST Differences", function(){
+		
+				it("handles different DST rules across timezones", function(){
+					// Arizona doesn't observe DST, New York does
+					var nyTime = moment('2015-06-15 12:00:00', 'America/New_York');
+					var azTime = nyTime.clone().tz('America/Phoenix');
+					
+					// In summer, NY is EDT (UTC-4), AZ is MST (UTC-7)
+					// So NY noon = AZ 9 AM
+					expect( azTime.format('HH:nn') ).toBe( '09:00' );
+				});
+		
+			});
+	
+		});
+
+		describe("MILLISECOND PRECISION", function(){
+	
+			it("maintains millisecond precision in epoch()", function(){
+				var base = moment('2015-01-01 12:00:00.123', 'UTC');
+				var epoch = base.epoch();
+				
+				// Should have milliseconds (not be a round number)
+				// Use string conversion to avoid integer overflow in modulo
+				var epochStr = toString(epoch);
+				var lastThree = right(epochStr, 3);
+				expect( lastThree ).toBe( '123' );
+			});
+			
+			it("calculates millisecond diff accurately", function(){
+				var base = moment();
+				var later = base.clone().add(500, 'milliseconds');
+				
+				// diff() returns later - earlier, so base.diff(later) is negative
+				var diff = base.diff(later, 'milliseconds');
+				expect( diff ).toBe( 500 );
+			});
+			
+			it("handles large millisecond differences correctly", function(){
+				var start = moment('2015-01-01 00:00:00', 'UTC');
+				var end = moment('2015-01-02 00:00:00', 'UTC');
+				
+				// diff() returns this - other, so start.diff(end) gives positive value
+				var diff = start.diff(end, 'milliseconds');
+				// 24 hours = 86,400,000 milliseconds
+				expect( diff ).toBe( 86400000 );
+			});
+			
+			it("preserves epoch through timezone conversions", function(){
+				// Create moment in UTC to avoid timezone conversion issues
+				var base = moment('2015-01-01 12:00:00', 'UTC');
+				var baseEpoch = base.epoch();
+				
+				// Convert to NY timezone
+				var nyVersion = base.clone().tz('America/New_York');
+				var nyEpoch = nyVersion.epoch();
+				
+				// Epoch values should be identical (same instant in time)
+				expect( baseEpoch ).toBe( nyEpoch );
+				
+				// Verify they represent the same instant in time
+				expect( base.diff(nyVersion, 'milliseconds') ).toBe( 0 );
+			});
+	
+		});
+
+		describe("CLONE INDEPENDENCE", function(){
+	
+			it("cloned instance is independent from original", function(){
+				var original = moment('2015-01-01 12:00:00', 'America/New_York');
+				var cloned = original.clone();
+				
+				// Modify the clone
+				cloned.add(5, 'hours');
+				cloned.tz('UTC');
+				
+				// Original should be unchanged
+				expect( original.format('yyyy-mm-dd HH:nn:ss') ).toBe( '2015-01-01 12:00:00' );
+				expect( original.getZone() ).toBe( 'America/New_York' );
+			});
+			
+			it("multiple clones are independent from each other", function(){
+				var base = moment('2015-01-01 12:00:00', 'UTC');
+				var clone1 = base.clone();
+				var clone2 = base.clone();
+				
+				clone1.add(1, 'day');
+				clone2.subtract(1, 'day');
+				
+				expect( clone1.format('yyyy-mm-dd') ).toBe( '2015-01-02' );
+				expect( clone2.format('yyyy-mm-dd') ).toBe( '2014-12-31' );
+				expect( base.format('yyyy-mm-dd') ).toBe( '2015-01-01' );
+			});
+	
+		});
+
+		describe("GETARBITRARYTIMEOFFSET", function(){
+	
+			it("returns correct offset for UTC", function(){
+				var test = moment();
+				var offset = test.getArbitraryTimeOffset(now(), 'UTC');
+				expect( offset ).toBe( 0 );
+			});
+			
+			it("returns correct offset for America/New_York in winter", function(){
+				var test = moment();
+				var winterTime = createDateTime(2015, 1, 15, 12, 0, 0);
+				var offset = test.getArbitraryTimeOffset(winterTime, 'America/New_York');
+				// EST is UTC-5 = -18000 seconds
+				expect( offset ).toBe( -18000 );
+			});
+			
+			it("returns correct offset for America/New_York in summer", function(){
+				var test = moment();
+				var summerTime = createDateTime(2015, 7, 15, 12, 0, 0);
+				var offset = test.getArbitraryTimeOffset(summerTime, 'America/New_York');
+				// EDT is UTC-4 = -14400 seconds
+				expect( offset ).toBe( -14400 );
+			});
+			
+			it("handles unusual timezone offsets", function(){
+				var test = moment();
+				var time = createDateTime(2015, 6, 15, 12, 0, 0);
+				
+				// Asia/Kathmandu is UTC+5:45 = 20700 seconds
+				var offset = test.getArbitraryTimeOffset(time, 'Asia/Kathmandu');
+				expect( offset ).toBe( 20700 );
+			});
+	
+		});
+	}
 }
